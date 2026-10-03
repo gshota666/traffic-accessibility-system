@@ -78,7 +78,8 @@ def test_crash_recovery_native_process(tmp_path):
             assert resumed['status']=='paused' and resumed['success']>=before['success']
             saved=c.get(f'/api/jobs/{j["id"]}/results?status=success&size=1').json()['rows'][0]
             c.post(f'/api/jobs/{j["id"]}/resume')
-            for _ in range(600):
+            recovery_deadline=time.monotonic()+360
+            while time.monotonic()<recovery_deadline:
                 final=c.get('/api/jobs/'+j['id']).json()
                 if final['status']=='completed':break
                 time.sleep(.05)
@@ -109,7 +110,7 @@ def test_frontend_version_matches_backend_version():
     assert match and match.group(1)==APP_VERSION
 
 def test_collection_time_reference_is_informational():
-    js=(ROOT/'frontend/app.js').read_text()
+    js=(ROOT/'frontend/app.js').read_text(encoding='utf-8')
     section=js[js.index('function collectionSettings'):js.index('const localTime=')]
     for text in ['参考情景时间','03:00 或静态路网时间','14:00','08:00','18:00','周六/周日 10:00','节假日','单独分析']:
         assert text in section

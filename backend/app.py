@@ -632,7 +632,8 @@ def create_app(root=None,token=None,run_worker=True,on_shutdown=None):
         else: raise HTTPException(400,'未知导出类型')
         stamp=datetime.now(timezone(timedelta(hours=8))).strftime('%Y%m%d-%H%M%S'); short=jid[:8]; safe_name=re.sub(r'[\\/:*?"<>|]+','_',job['name']).strip()[:60] or '任务'
         names={'paper':f'论文分析数据_{safe_name}_{stamp}_{short}.xlsx','quality':f'采集质量报告_{safe_name}_{stamp}_{short}.xlsx','package':f'完整采集审计包_{safe_name}_{stamp}_{short}.zip','summary':f'起点汇总_{safe_name}_{stamp}_{short}.xlsx','details':f'路线明细_{safe_name}_{stamp}_{short}.xlsx','research':f'采集完整性报告_{safe_name}_{stamp}_{short}.xlsx'}
-        return FileResponse(path,filename=names.get(kind,f'交通可达性_{kind}_{short}.xlsx'))
+        media_type='application/zip' if kind=='package' else None
+        return FileResponse(path,filename=names.get(kind,f'交通可达性_{kind}_{short}.xlsx'),media_type=media_type)
     @app.post('/api/shutdown')
     async def shutdown():
         worker.stop_event.set()
