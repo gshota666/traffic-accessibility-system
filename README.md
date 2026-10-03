@@ -83,17 +83,44 @@ flowchart LR
 
 ## 在本机运行
 
-需要 Python 3.11 或更新版本。在项目目录打开终端：
+Windows 用户可以直接运行打包版，也可以从源码启动；macOS/Linux 用户按对应命令运行。**下载打包版不需要另装 Python；从源码启动或自行打包需要 Python 3.11 或更新版本。**
+
+### Windows：下载并运行
+
+1. 打开[项目的 Actions 页面](https://github.com/gshota666/traffic-accessibility-system/actions/workflows/test-build.yml)。
+2. 选择最新一条已完成且显示成功的 **Native platform test and build** 运行记录；如果最新记录仍在运行，等它结束后再下载。
+3. 在页面底部的 **Artifacts** 区域下载 `traffic-accessibility-windows-latest`，然后解压。
+4. 打开解压目录中的 `dist` 文件夹，双击 `交通可达性分析系统.exe`。软件会启动本机服务并打开浏览器页面。
+5. 需要真实路线数据时，在软件“系统设置”中配置高德 Key；不配置时可使用模拟模式熟悉操作。
+
+这是无需安装向导的 Windows 便携版，不是传统安装程序。运行期间不要退出软件；完成后使用页面左侧的“退出应用”正常关闭。
+
+### Windows：从源码启动或自行打包
+
+在 Windows PowerShell 中进入项目目录。以下命令不需要修改 PowerShell 脚本执行策略：
+
+```powershell
+py -3.11 -m venv .venv
+\.venv\Scripts\python.exe -m pip install -r requirements.txt
+\.venv\Scripts\python.exe start.py
+```
+
+如需自行生成单文件程序，再安装 PyInstaller 并运行构建脚本：
+
+```powershell
+\.venv\Scripts\python.exe -m pip install pyinstaller
+\.venv\Scripts\python.exe scripts\build.py
+```
+
+生成的文件位于 `dist\交通可达性分析系统.exe`。Windows 版应在 Windows 系统上构建。
+
+### macOS / Linux：从源码启动
+
+在项目目录打开终端：
 
 ```bash
-python -m venv .venv
-
-# macOS / Linux
+python3 -m venv .venv
 source .venv/bin/activate
-
-# Windows PowerShell 使用这一行激活环境（不要与上一行同时运行）
-# .\.venv\Scripts\Activate.ps1
-
 python -m pip install -r requirements.txt
 python start.py
 ```
