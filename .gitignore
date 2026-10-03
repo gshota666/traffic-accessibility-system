@@ -1,0 +1,40 @@
+# Python/runtime
+.venv/
+__pycache__/
+.pytest_cache/
+.coverage
+htmlcov/
+*.py[cod]
+
+# Local user data and credentials
+.qa-*/
+.playwright-cli/
+.env
+.env.*
+!.env.example
+instance.json
+instance.lock
+*.db
+*.db-*
+credentials.json
+uploads/
+exports/
+
+# Generated builds and logs
+build/
+dist/
+/*.spec
+*.log
+.DS_Store
+
+# Machine-specific review/progress documents and raw research notes
+/当前研究方案锁定说明.md
+/接手核查报告*.md
+/项目进度交接记录*.md
+/最终方案_*.md
+/测试审查报告.md
+/系统使用说明.md
+/性能基准结果.json
+/性能吞吐离线基准结果.json
+/苹果电脑构建日志.log
+/苹果电脑测试结果.xml

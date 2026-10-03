@@ -1,0 +1,8 @@
+[project]
+name = "traffic-accessibility"
+version = "0.1.0"
+description = "本地运行的交通可达性批量采集工具，支持多日驾车路线查询、质量报告与研究数据导出"
+requires-python = ">=3.11"
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]
