@@ -1,5 +1,9 @@
 name: Native platform test and build
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches-ignore: ['windows-release-*']
+  pull_request:
+  workflow_dispatch:
 jobs:
   native:
     strategy:
