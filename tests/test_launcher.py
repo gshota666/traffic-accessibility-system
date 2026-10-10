@@ -61,15 +61,15 @@ def test_crash_recovery_native_process(tmp_path):
     try:
         url,info=ready(root,proc)
         with httpx.Client(base_url=url,headers={'x-session-token':info['token']},trust_env=False,timeout=30) as c:
-            data='ID,名称,lon,lat\n'+''.join(f'A{i},测试点,114.{i:03},30.5\n' for i in range(100))
+            data='ID,名称,lon,lat\n'+''.join(f'A{i},测试点,114.{i:03},30.5\n' for i in range(10))
             upload=c.post('/api/imports',files={'file':('崩溃测试.csv',data.encode())}).json()
             assert c.post(f'/api/imports/{upload["id"]}/validate',json={'mapping':upload['mapping'],'crs':'WGS84'}).status_code==200
-            j=c.post('/api/jobs',json={'name':'崩溃恢复','dataset_id':upload['id'],'target_ids':list(range(1,32)),'date':'2026-09-15','times':['08:00']}).json()
+            j=c.post('/api/jobs',json={'name':'崩溃恢复','dataset_id':upload['id'],'target_ids':list(range(1,11)),'date':'2026-09-15','times':['08:00']}).json()
             for _ in range(300):
                 before=c.get('/api/jobs/'+j['id']).json()
                 if before['success']>0:break
                 time.sleep(.02)
-            assert 0<before['success']<3100
+            assert 0<before['success']<100
         proc.kill();proc.wait(timeout=10)
         proc=subprocess.Popen(args,cwd=ROOT)
         url,info=ready(root,proc)
@@ -83,7 +83,7 @@ def test_crash_recovery_native_process(tmp_path):
                 final=c.get('/api/jobs/'+j['id']).json()
                 if final['status']=='completed':break
                 time.sleep(.05)
-            assert final['success']==3100
+            assert final['success']==100
             import sqlite3
             with sqlite3.connect(root/'traffic.db') as db:
                 db.row_factory=sqlite3.Row

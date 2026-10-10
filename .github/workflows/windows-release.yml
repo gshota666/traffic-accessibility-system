@@ -1,0 +1,33 @@
+name: Windows native release
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      PYTHONUTF8: '1'
+      PYTHON_KEYRING_BACKEND: keyring.backends.null.Keyring
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          architecture: x64
+      - run: python -m pip install -r requirements.txt pytest pyinstaller
+      - run: python -m pytest -q --junitxml=windows-test-results.xml
+      - run: python scripts/build.py
+      - run: python scripts/smoke_package.py
+      - run: python scripts/package_windows.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: 交通可达性分析系统-Windows-x64
+          path: dist/交通可达性分析系统_Windows_x64_*.zip
+          if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Windows-test-results
+          path: windows-test-results.xml

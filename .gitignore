@@ -1,5 +1,7 @@
 # Python/runtime
 .venv/
+.venv-windows/
+windows-test-results.xml
 __pycache__/
 .pytest_cache/
 .coverage

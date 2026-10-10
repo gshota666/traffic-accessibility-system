@@ -1,3 +1,4 @@
+import sys
 """Offline throughput and bounded-concurrency checks.
 
 These tests replace the provider with a deterministic in-process function; no
@@ -159,7 +160,7 @@ def test_offline_2914_batch_executes_without_duplicates(client,monkeypatch):
     # Windows hosted runners are substantially slower for per-observation
     # SQLite commits and fsyncs; this remains a regression ceiling, not an
     # API throughput claim.
-    assert elapsed < 360, f'isolated local smoke unexpectedly slow: {elapsed:.1f}s'
+    assert elapsed < (1200 if sys.platform == 'win32' else 360), f'isolated local smoke unexpectedly slow: {elapsed:.1f}s'
 
 
 def test_concurrent_daily_budget_is_atomic(client,monkeypatch):

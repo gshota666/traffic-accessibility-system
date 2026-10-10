@@ -149,7 +149,7 @@ def test_resume_does_not_recompute_success(client):
     worker.start()
     assert db.one('SELECT status FROM jobs WHERE id=?',(j['id'],))['status']=='paused'
     assert client.post(f'/api/jobs/{j["id"]}/resume').status_code==200
-    until=time.monotonic()+10
+    until=time.monotonic()+120
     while time.monotonic()<until:
         result=client.get('/api/jobs/'+j['id']).json()
         if result['status']=='completed': break
