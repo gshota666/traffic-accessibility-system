@@ -44,7 +44,7 @@ class SmoothRateLimiter:
     """A process-wide, smooth request-start limiter.
 
     ``qps`` is deliberately separate from worker concurrency.  The limiter
-    reserves one monotonically increasing start slot at a time, so several
+    grants one monotonically increasing start slot at a time, so several
     worker threads cannot each send their own burst of ``qps`` requests.
     ``time.monotonic_ns`` is used for interval accounting; it is never used as
     the research request timestamp saved to the database.
@@ -68,31 +68,25 @@ class SmoothRateLimiter:
             self._next_slot = max(self._next_slot, time.monotonic())
 
     def acquire(self, stop_event, deadline=None):
-        """Reserve a start slot and wait for it.
+        """Grant starts at least one interval apart, without catch-up bursts.
 
-        Returns ``(granted, waited_seconds)``.  A deadline is checked both
-        before and after waiting so a scheduled task never starts a new HTTP
-        request after its allowed window.
+        Re-evaluate after every wake-up: a delayed thread must not release
+        an old reservation beside another thread's current reservation.
         """
-        with self._lock:
-            now = time.monotonic()
-            slot = max(now, self._next_slot)
-            if deadline is not None and time.time() + max(0.0, slot - now) >= deadline:
-                return False, 0.0
-            self._next_slot = slot + self._interval
-        wait = max(0.0, slot - now)
-        # Event.wait may wake a few milliseconds early on some platforms.
-        # Re-check the monotonic deadline so the actual provider start cannot
-        # move ahead of the reserved slot and violate the sliding-window cap.
-        while True:
-            remaining = slot - time.monotonic()
-            if remaining <= 0:
-                break
+        started = time.monotonic()
+        while not stop_event.is_set():
+            with self._lock:
+                now = time.monotonic()
+                remaining = max(0.0, self._next_slot - now)
+                if deadline is not None and time.time() + remaining >= deadline:
+                    return False, now - started
+                if remaining <= 0:
+                    self._next_slot = now + self._interval
+                    return True, now - started
             if stop_event.wait(remaining):
-                return False, wait
-        if deadline is not None and time.time() >= deadline:
-            return False, wait
-        return True, wait
+                break
+        return False, time.monotonic() - started
+
 
 
 class DispatchGate:

@@ -1,4 +1,6 @@
 import json
+import logging
+import pytest
 import os
 import subprocess
 import sys
@@ -30,7 +32,9 @@ def test_real_launcher_reopen_exit_and_port_conflict(tmp_path,monkeypatch):
     try:
         url,info=ready(root,proc);assert info['port']!=port
         opened=[];monkeypatch.setattr('webbrowser.open',lambda url:opened.append(url))
+        handlers_before=list(logging.getLogger("traffic").handlers)
         launch(root,no_browser=False)
+        assert logging.getLogger("traffic").handlers == handlers_before
         assert len(opened)==1 and f':{info["port"]}' in opened[0]
         with httpx.Client(base_url=url,headers={'x-session-token':info['token']},trust_env=False) as c:
             assert c.post('/api/targets',json={'name':'持久化中文测试','lon':114.3,'lat':30.5}).status_code==200
@@ -55,13 +59,16 @@ def test_paths(tmp_path,monkeypatch):
     assert data_dir()==user_data_path('TrafficAccessibility',appauthor=False)
 
 def test_crash_recovery_native_process(tmp_path):
+    # This integration test checks recovery, not throughput. Keep enough
+    # rows to kill an in-flight batch without making Windows disk flush
+    # speed determine whether recovery passes; scale has separate coverage.
     root=tmp_path/'崩溃恢复'
     args=[sys.executable,str(ROOT/'start.py'),'--no-browser','--data-dir',str(root)]
     proc=subprocess.Popen(args,cwd=ROOT)
     try:
         url,info=ready(root,proc)
         with httpx.Client(base_url=url,headers={'x-session-token':info['token']},trust_env=False,timeout=30) as c:
-            data='ID,名称,lon,lat\n'+''.join(f'A{i},测试点,114.{i:03},30.5\n' for i in range(100))
+            data='ID,名称,lon,lat\n'+''.join(f'A{i},测试点,114.{i:03},30.5\n' for i in range(10))
             upload=c.post('/api/imports',files={'file':('崩溃测试.csv',data.encode())}).json()
             assert c.post(f'/api/imports/{upload["id"]}/validate',json={'mapping':upload['mapping'],'crs':'WGS84'}).status_code==200
             j=c.post('/api/jobs',json={'name':'崩溃恢复','dataset_id':upload['id'],'target_ids':list(range(1,32)),'date':'2026-09-15','times':['08:00']}).json()
@@ -69,7 +76,7 @@ def test_crash_recovery_native_process(tmp_path):
                 before=c.get('/api/jobs/'+j['id']).json()
                 if before['success']>0:break
                 time.sleep(.02)
-            assert 0<before['success']<3100
+            assert 0<before['success']<310
         proc.kill();proc.wait(timeout=10)
         proc=subprocess.Popen(args,cwd=ROOT)
         url,info=ready(root,proc)
@@ -83,7 +90,7 @@ def test_crash_recovery_native_process(tmp_path):
                 final=c.get('/api/jobs/'+j['id']).json()
                 if final['status']=='completed':break
                 time.sleep(.05)
-            assert final['success']==3100
+            assert final['success']==310
             import sqlite3
             with sqlite3.connect(root/'traffic.db') as db:
                 db.row_factory=sqlite3.Row
@@ -116,3 +123,22 @@ def test_collection_time_reference_is_informational():
         assert text in section
     assert "wizard.collection_mode||'immediate'" in section
     assert 'id="scenario"' not in section
+
+
+@pytest.mark.parametrize("port", [-1, 65536])
+def test_invalid_port_has_clear_error(port):
+    with pytest.raises(ValueError, match="端口必须"):
+        reserve_socket(port)
+
+
+def test_reopen_failure_closes_log_handler(tmp_path, monkeypatch):
+    from filelock import Timeout
+    def locked(self):
+        raise Timeout(str(tmp_path / "instance.lock"))
+    monkeypatch.setattr("start.FileLock.acquire", locked)
+    monkeypatch.setattr("start.time.sleep", lambda _: None)
+    logger=logging.getLogger("traffic")
+    before=list(logger.handlers)
+    with pytest.raises(RuntimeError, match="另一个实例"):
+        launch(tmp_path, no_browser=True)
+    assert logger.handlers == before

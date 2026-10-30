@@ -197,3 +197,34 @@ def test_constructed_long_tail_latency_is_recorded(client,monkeypatch):
     assert done['status']=='completed' and done['success']==3
     durations=[r['provider_duration_seconds'] for r in client.app.state.db.rows('SELECT provider_duration_seconds FROM request_attempts WHERE job_id=?',(created['id'],))]
     assert max(durations)-min(durations)>0.08
+
+
+def test_rate_limiter_does_not_catch_up_after_delayed_wakeup(monkeypatch):
+    # A deterministic clock reproduces a runner delaying the second grant.
+    import services.worker as worker
+    clock=[0.0]
+    monkeypatch.setattr(worker.time, "monotonic", lambda: clock[0])
+    class DelayedEvent:
+        waits=0
+        def is_set(self): return False
+        def wait(self, seconds):
+            self.waits+=1
+            clock[0]+=seconds+(0.15 if self.waits==1 else 0.0)
+            return False
+    limiter=SmoothRateLimiter(3)
+    event=DelayedEvent()
+    starts=[]
+    for _ in range(5):
+        allowed,_=limiter.acquire(event)
+        assert allowed
+        starts.append(clock[0])
+    assert all(b-a >= 1/3 for a,b in zip(starts,starts[1:]))
+
+
+def test_rate_limiter_respects_stop_and_deadline():
+    limiter=SmoothRateLimiter(3)
+    stop=threading.Event()
+    stop.set()
+    assert limiter.acquire(stop)[0] is False
+    stop.clear()
+    assert limiter.acquire(stop, deadline=time.time()-1)[0] is False

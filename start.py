@@ -18,6 +18,8 @@ from backend.app import create_app
 
 
 def reserve_socket(preferred=8000):
+    if not 0 <= preferred <= 65535:
+        raise ValueError("端口必须在 0 到 65535 之间（0 表示自动选择）")
     for port in [*range(preferred,min(preferred+20,65536)),0]:
         sock=socket.socket(socket.AF_INET,socket.SOCK_STREAM)
         if os.name!='nt': sock.setsockopt(socket.SOL_SOCKET,socket.SO_REUSEADDR,1)
@@ -40,19 +42,23 @@ def launch(root=None,no_browser=False,port=8000):
     state=root/'instance.json'
     try: lock.acquire()
     except Timeout:
-        for _ in range(50):
-            try:
-                info=json.loads(state.read_text(encoding='utf-8'))
-                if info.get('port') and info.get('token'):
-                    url=f'http://127.0.0.1:{int(info["port"])}'
-                    with httpx.Client(trust_env=False,timeout=1) as client:
-                        response=client.get(url+'/api/dashboard',headers={'x-session-token':info['token']})
-                    if response.status_code==200:
-                        if not no_browser: webbrowser.open(url+'/?token='+info['token'])
-                        return
-            except (OSError,ValueError,httpx.HTTPError): pass
-            time.sleep(.1)
-        raise RuntimeError('另一个实例正在启动或退出，请稍后重试')
+        try:
+            for _ in range(50):
+                try:
+                    info=json.loads(state.read_text(encoding='utf-8'))
+                    if info.get('port') and info.get('token'):
+                        url=f'http://127.0.0.1:{int(info["port"])}'
+                        with httpx.Client(trust_env=False,timeout=1) as client:
+                            response=client.get(url+'/api/dashboard',headers={'x-session-token':info['token']})
+                        if response.status_code==200:
+                            if not no_browser: webbrowser.open(url+'/?token='+info['token'])
+                            return
+                except (OSError,ValueError,httpx.HTTPError): pass
+                time.sleep(.1)
+            raise RuntimeError('另一个实例正在启动或退出，请稍后重试')
+        finally:
+            log.removeHandler(handler)
+            handler.close()
     sock=None
     try:
         token=secrets.token_urlsafe(32); sock=reserve_socket(port); actual=sock.getsockname()[1]

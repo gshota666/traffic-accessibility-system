@@ -1,7 +1,29 @@
 name: Native platform test and build
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+
 jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node --check frontend/app.js
+      - run: node tests/test_frontend_research.cjs
+
   native:
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
@@ -17,6 +39,7 @@ jobs:
       - run: python scripts/build.py
       - run: python scripts/smoke_package.py
       - uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: traffic-accessibility-${{ matrix.os }}
           path: |
