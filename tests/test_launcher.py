@@ -1,4 +1,6 @@
 import json
+import logging
+import pytest
 import os
 import subprocess
 import sys
@@ -30,7 +32,9 @@ def test_real_launcher_reopen_exit_and_port_conflict(tmp_path,monkeypatch):
     try:
         url,info=ready(root,proc);assert info['port']!=port
         opened=[];monkeypatch.setattr('webbrowser.open',lambda url:opened.append(url))
+        handlers_before=list(logging.getLogger("traffic").handlers)
         launch(root,no_browser=False)
+        assert logging.getLogger("traffic").handlers == handlers_before
         assert len(opened)==1 and f':{info["port"]}' in opened[0]
         with httpx.Client(base_url=url,headers={'x-session-token':info['token']},trust_env=False) as c:
             assert c.post('/api/targets',json={'name':'持久化中文测试','lon':114.3,'lat':30.5}).status_code==200
@@ -116,3 +120,22 @@ def test_collection_time_reference_is_informational():
         assert text in section
     assert "wizard.collection_mode||'immediate'" in section
     assert 'id="scenario"' not in section
+
+
+@pytest.mark.parametrize("port", [-1, 65536])
+def test_invalid_port_has_clear_error(port):
+    with pytest.raises(ValueError, match="端口必须"):
+        reserve_socket(port)
+
+
+def test_reopen_failure_closes_log_handler(tmp_path, monkeypatch):
+    from filelock import Timeout
+    def locked(self):
+        raise Timeout(str(tmp_path / "instance.lock"))
+    monkeypatch.setattr("start.FileLock.acquire", locked)
+    monkeypatch.setattr("start.time.sleep", lambda _: None)
+    logger=logging.getLogger("traffic")
+    before=list(logger.handlers)
+    with pytest.raises(RuntimeError, match="另一个实例"):
+        launch(tmp_path, no_browser=True)
+    assert logger.handlers == before
