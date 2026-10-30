@@ -15,13 +15,11 @@
 ## Python结果
 
 ```text
-........................................................................ [ 91%]
-.......                                                                  [100%]
-=============================== warnings summary ===============================
-.venv/lib/python3.14/site-packages/fastapi/testclient.py:1
-  /Users/cy/Documents/vibe coding/traffic-accessibility-system/.venv/lib/python3.14/site-packages/fastapi/testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
-    from starlette.testclient import TestClient as TestClient  # noqa
-
--- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
-79 passed, 1 warning in 82.74s (0:01:22)
+81 passed, 1 warning in 74.30s
 ```
+
+远端检查暴露了限流预留时刻在延迟唤醒后产生追赶突发的问题，已改为按实际授权时刻间隔放行，并增加确定性时钟、停止与截止时间测试。
+
+崩溃恢复集成测试改用310条模拟路线，保留中断、恢复、结果不重复写入及数据库完整性断言；吞吐规模由独立测试覆盖。调整后启动器专项测试9项通过。
+
+CI仅在main推送、PR或手动触发时运行，并取消同一分支的过期运行，避免重复构建。

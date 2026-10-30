@@ -59,13 +59,16 @@ def test_paths(tmp_path,monkeypatch):
     assert data_dir()==user_data_path('TrafficAccessibility',appauthor=False)
 
 def test_crash_recovery_native_process(tmp_path):
+    # This integration test checks recovery, not throughput. Keep enough
+    # rows to kill an in-flight batch without making Windows disk flush
+    # speed determine whether recovery passes; scale has separate coverage.
     root=tmp_path/'崩溃恢复'
     args=[sys.executable,str(ROOT/'start.py'),'--no-browser','--data-dir',str(root)]
     proc=subprocess.Popen(args,cwd=ROOT)
     try:
         url,info=ready(root,proc)
         with httpx.Client(base_url=url,headers={'x-session-token':info['token']},trust_env=False,timeout=30) as c:
-            data='ID,名称,lon,lat\n'+''.join(f'A{i},测试点,114.{i:03},30.5\n' for i in range(100))
+            data='ID,名称,lon,lat\n'+''.join(f'A{i},测试点,114.{i:03},30.5\n' for i in range(10))
             upload=c.post('/api/imports',files={'file':('崩溃测试.csv',data.encode())}).json()
             assert c.post(f'/api/imports/{upload["id"]}/validate',json={'mapping':upload['mapping'],'crs':'WGS84'}).status_code==200
             j=c.post('/api/jobs',json={'name':'崩溃恢复','dataset_id':upload['id'],'target_ids':list(range(1,32)),'date':'2026-09-15','times':['08:00']}).json()
@@ -73,7 +76,7 @@ def test_crash_recovery_native_process(tmp_path):
                 before=c.get('/api/jobs/'+j['id']).json()
                 if before['success']>0:break
                 time.sleep(.02)
-            assert 0<before['success']<3100
+            assert 0<before['success']<310
         proc.kill();proc.wait(timeout=10)
         proc=subprocess.Popen(args,cwd=ROOT)
         url,info=ready(root,proc)
@@ -87,7 +90,7 @@ def test_crash_recovery_native_process(tmp_path):
                 final=c.get('/api/jobs/'+j['id']).json()
                 if final['status']=='completed':break
                 time.sleep(.05)
-            assert final['success']==3100
+            assert final['success']==310
             import sqlite3
             with sqlite3.connect(root/'traffic.db') as db:
                 db.row_factory=sqlite3.Row
