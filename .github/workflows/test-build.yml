@@ -1,5 +1,13 @@
 name: Native platform test and build
-on: [push, pull_request, workflow_dispatch]
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 permissions:
   contents: read
 
@@ -15,6 +23,7 @@ jobs:
       - run: node tests/test_frontend_research.cjs
 
   native:
+    timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
